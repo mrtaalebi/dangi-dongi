@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login
 from rest_framework import serializers
 
 from dangidongi import models
@@ -6,113 +7,17 @@ from dangidongi import models
 
 class UserSerializer(serializers.ModelSerializer):
 
+    password1 = serializers.CharField(write_only=True)
+    password2 = serializers.CharField(write_only=True)
+
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email',
-        ]
-
-
-class PaymentSerializer(serializers.ModelSerializer):
-
-    payer = UserSerializer()
-    payee = UserSerializer()
-    pay_proof_image = serializers.ImageField()
-
-    class Meta:
-        model = models.Payment
-        fields = [
-            'id', 'payer', 'payee', 'amount', 'is_initial_payment',
-            'has_payed', 'pay_proof_image', 'pay_proof_text',
-        ]
-
-
-class LocationSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = models.Location
-        fields = [
-            'latt',
-            'lang',
-        ]
-
-
-class EventSerializer(serializers.ModelSerializer):
-
-    payments = PaymentSerializer(many=True)
-    where = LocationSerializer()
-
-    class Meta:
-        model = models.Event
-        fields = [
-            'id', 'title', 'when', 'where', 'description', 'total_cost',
-            'payments',
-        ]
-
-
-class GroupSerializer(serializers.ModelSerializer):
-
-    events = EventSerializer(many=True, read_only=True)
-    usernames = serializers.ListSerializer(child=serializers.CharField(), write_only=True)
-
-    class Meta:
-        model = models.Group
-        fields = [
-            'id', 'name', 'events', 'people', 'usernames',
+            'id', 'username', 'email', 'password1', 'password2',
         ]
         read_only_fields = [
-            'id', 'events', 'people',
+            'id',
         ]
-
-    def add_users(self, group, usernames):
-        users = User.objects.filter(
-            username__in=usernames
-        )
-        for user in users:
-            group.people.add(user.profile)
-
-    def create(self, validated_data):
-        usernames = validated_data.pop('usernames')
-        group = models.Group.objects.create(
-            name=validated_data['name']
-        )
-        self.add_users(group, usernames)
-        return group
-
-    def update(self, group, validated_data):
-        self.add_users(group, validated_data['usernames'])
-        return group
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-
-    user = UserSerializer()
-    groups = GroupSerializer(many=True)
-    events = EventSerializer(many=True)
-
-    class Meta:
-        model = models.Profile
-        fields = [
-            'user',
-            'picture',
-            'card_number',
-            'groups',
-            'events',
-        ]
-        read_only_fields = [
-            'groups',
-            'events',
-        ]
-
-
-class CreateProfileSerializer(serializers.Serializer):
-
-    username = serializers.CharField(write_only=True)
-    email = serializers.CharField(write_only=True)
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
-    card_number = serializers.CharField(write_only=True)
-    picture = serializers.FileField(write_only=True)
 
     def validate(self, data):
         if data['password1'] != data['password2']:
@@ -125,11 +30,144 @@ class CreateProfileSerializer(serializers.Serializer):
             validated_data['email'],
             validated_data['password1'],
         )
-        user = User.objects.get(username=username)
-        profile = models.Profile.objects.create(
-            user=user,
-            picture=validated_data['picture'],
-            card_number=validated_data['card_number'],
+        return User.objects.get(username=username)
+
+
+class UserLoginSerializer(serializers.Serializer):
+
+    id = serializers.CharField(read_only=True)
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        try:
+            self.user = authenticate(
+                username=data['username'],
+                password=data['password'],
+            )
+            if self.user is None:
+                raise serializers.ValidationError('Unauthorized')
+            return data
+        except KeyError:
+            raise serializers.ValidationError('Unauthorized')
+
+    def create(self, _):
+        login(self.context['request'], self.user)
+        return self.user
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+
+    user = UserSerializer()
+
+    class Meta:
+        model = models.Profile
+        depth = 1
+        fields = [
+            'user', 'picture', 'card_number',
+        ]
+        read_only_fields = [
+            'picture',
+        ]
+
+    def create(serf, validated_data):
+        user = UserSerializer(data=validated_data.pop('user'))
+        if user.is_valid(raise_exception=True):
+            user = user.save()
+        validated_data.update({'user': user})
+        return models.Profile.objects.create(
+            **validated_data
         )
-        return profile
+
+
+class ProfilePictureSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Profile
+        fields = [
+            'id', 'picture'
+        ]
+        read_only_fields = [
+            'id',
+        ]
+
+
+class GroupSerializer(serializers.ModelSerializer):
+
+    people_set = serializers.SerializerMethodField()
+
+    def get_people_set(self, group):
+        return ProfileSerializer(group.people.all(), many=True).data
+
+    class Meta:
+        model = models.Group
+        depth = 0
+        fields = [
+            'id', 'name', 'events', 'people', 'people_set',
+        ]
+        read_only_fields = [
+            'id', 'events', 'people_set',
+        ]
+
+
+class LocationSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.Location
+        fields = [
+            'latt', 'lang',
+        ]
+
+
+class EventSerializer(serializers.ModelSerializer):
+
+    people_set = serializers.SerializerMethodField()
+    where = LocationSerializer()
+
+    def get_people_set(self, event):
+        people_set = event.get_people_set()
+        return ProfileSerializer(people_set, many=True).data
+
+    class Meta:
+        model = models.Event
+        depth = 0
+        fields = [
+            'id', 'title', 'when', 'where', 'description', 'total_cost',
+            'payments', 'people', 'people_set',
+        ]
+        read_only_fields = [
+            'id', 'payments', 'people_set',
+        ]
+
+    def create(self, validated_data):
+        people = validated_data.pop('people')
+        where = LocationSerializer(data=validated_data.pop('where'))
+        if where.is_valid(raise_exception=True):
+            where = where.save()
+        event = models.Event.objects.create(
+            where=where,
+            **validated_data
+        )
+        for profile in people:
+            event.people.add(profile)
+        event.people.add(self.context['request'].user.profile)
+        return event
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+
+    payer = ProfileSerializer()
+    payee = ProfileSerializer()
+
+    class Meta:
+        model = models.Payment
+        depth = 0
+        fields = [
+            'id', 'payer', 'payee', 'amount', 'event', 'is_initial_payment',
+            'has_payed', 'pay_proof_image', 'pay_proof_text',
+        ]
+        read_only_fields = [
+            'id',
+        ]
+
 

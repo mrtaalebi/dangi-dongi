@@ -5,32 +5,37 @@ from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 
 
-class Payment(models.Model):
-    payer = models.ForeignKey(
+class Profile(models.Model):
+    user = models.OneToOneField(
         User,
-        related_name='payer_payments',
+        related_name='profile',
         on_delete=models.CASCADE
     )
-    payee = models.ForeignKey(
-        User,
-        related_name='payee_payments',
-        on_delete=models.CASCADE,
-        null=True
+    def name_it(_, filename):
+        return uuid.uuid4().hex + '.' + filename.split('.')[-1]
+    picture = models.ImageField(
+        max_length=200,
+        upload_to=name_it,
     )
-    amount = models.FloatField(
+    card_number = models.CharField(
+        max_length=20,
         validators=[
             RegexValidator(
-                regex='\d+([.]\d*)?',
-                message='Payment amount must be positive',
+                regex='^(\d{16})|(\d{20})$',
+                message='Invalid card number',
             )
         ],
     )
-    is_initial_payment = models.BooleanField()
-    has_payed = models.BooleanField()
-    pay_proof_image = models.ImageField(
-        max_length=200,
+
+
+class Group(models.Model):
+    name = models.CharField(
+        max_length=100,
     )
-    pay_proof_text = models.TextField()
+    people = models.ManyToManyField(
+        Profile,
+        related_name='groups'
+    )
 
 
 class Location(models.Model):
@@ -58,50 +63,56 @@ class Event(models.Model):
             )
         ],
     )
-    payments = models.ForeignKey(
-        Payment,
-        related_name='events',
-        on_delete=models.CASCADE
-    )
-
-
-class Group(models.Model):
-    name = models.CharField(
-        max_length=100,
-    )
-    events = models.ManyToManyField(
-        Event,
-        related_name='groups'
-    )
-
-
-class Profile(models.Model):
-    user = models.OneToOneField(
-        User,
-        related_name='profile',
-        on_delete=models.CASCADE
-    )
-    def name_it(_, __):
-        return uuid.uuid4().hex + '.jpg'
-    picture = models.ImageField(
-        max_length=200,
-        upload_to=name_it,
-    )
-    card_number = models.CharField(
-        max_length=20,
-        validators=[
-            RegexValidator(
-                regex='^(\d{16})|(\d{20})$',
-                message='Invalid card number',
-            )
-        ],
+    people = models.ManyToManyField(
+        Profile,
+        related_name='events'
     )
     groups = models.ManyToManyField(
         Group,
-        related_name='people'
+        related_name='events'
     )
-    events = models.ManyToManyField(
+
+    def get_people_set(self):
+        people_set = set(self.people.all())
+        for group in self.groups.all():
+            for profile in group.people.all():
+                people_set.append(profile)
+        return people_set
+
+
+class Payment(models.Model):
+    payer = models.ForeignKey(
+        Profile,
+        related_name='payer_payments',
+        on_delete=models.CASCADE
+    )
+    payee = models.ForeignKey(
+        Profile,
+        related_name='payee_payments',
+        on_delete=models.CASCADE,
+        null=True
+    )
+    event = models.ForeignKey(
         Event,
-        related_name='people'
+        related_name='payments',
+        on_delete=models.CASCADE,
     )
+    amount = models.FloatField(
+        validators=[
+            RegexValidator(
+                regex='\d+([.]\d*)?',
+                message='Payment amount must be positive',
+            )
+        ],
+    )
+    is_initial_payment = models.BooleanField()
+    has_payed = models.BooleanField()
+    pay_proof_image = models.ImageField(
+        max_length=200,
+        null=True
+    )
+    pay_proof_text = models.TextField(
+        null=True
+    )
+
 

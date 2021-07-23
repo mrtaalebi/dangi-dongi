@@ -1,11 +1,14 @@
 from rest_framework import permissions
 
 
-class PostOrIsAuthenticated(permissions.IsAuthenticated):
+class CreatesProfile(permissions.BasePermission):
 
     def has_permission(self, request, view):
-        if request.method == 'POST':
-            return True
-        return super(permissions.IsAuthenticated, self).has_permission(
-            request, view
-        )
+        return request.method == 'POST'
+
+
+class OwnsProfile(permissions.BasePermission):
+
+    def has_object_permission(self, request, view, obj):
+        return obj == request.user.profile
+

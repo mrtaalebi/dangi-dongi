@@ -13,20 +13,30 @@ urlpatterns = [
         'admin/',
          admin.site.urls
     ),
-    path(
-        'api/profile/login/',
-        views.LoginAPIView.as_view()
-    ),
 ]
 
 router = DefaultRouter()
+router.register(
+    'api/auth/login',
+    views.LoginViewSet
+)
 router.register(
     'api/profile',
     views.ProfileViewSet
 )
 router.register(
+    'api/profilepicture',
+    views.ProfilePictureViewSet
+)
+router.register(
     'api/group',
-    views.GroupViewSet
+    views.GroupViewSet,
+    basename='group',
+)
+router.register(
+    'api/event',
+    views.EventViewSet,
+    basename='event',
 )
 
 urlpatterns += router.urls
