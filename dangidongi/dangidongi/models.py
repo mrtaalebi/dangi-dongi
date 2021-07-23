@@ -66,6 +66,9 @@ class Event(models.Model):
 
 
 class Group(models.Model):
+    name = models.CharField(
+        max_length=100,
+    )
     events = models.ManyToManyField(
         Event,
         related_name='groups'
@@ -78,9 +81,11 @@ class Profile(models.Model):
         related_name='profile',
         on_delete=models.CASCADE
     )
+    def name_it(_, __):
+        return uuid.uuid4().hex + '.jpg'
     picture = models.ImageField(
         max_length=200,
-        upload_to=lambda _, __: uuid.uuid4().hex + '.jpg',
+        upload_to=name_it,
     )
     card_number = models.CharField(
         max_length=20,

@@ -18,6 +18,7 @@ from dangidongi import (
 class ProfileViewSet(
     mixins.MultiSerializerMixin,
     rf_viewsets.GenericViewSet,
+    rf_mixins.ListModelMixin,
     rf_mixins.CreateModelMixin,
     rf_mixins.RetrieveModelMixin,
     rf_mixins.UpdateModelMixin,
@@ -27,8 +28,9 @@ class ProfileViewSet(
         permissions.PostOrIsAuthenticated
     ]
     serializer_classes = {
-        'create': serializers.CreateProfileSerializer,
+        'list': serializers.ProfileSerializer,
         'retrieve': serializers.ProfileSerializer,
+        'create': serializers.CreateProfileSerializer,
         'update': serializers.ProfileSerializer,
     }
     queryset = models.Profile.objects.all()
@@ -54,3 +56,23 @@ class LoginAPIView(rf_views.APIView):
             return Response(
                 status=rf_status.HTTP_400_BAD_REQUEST
             )
+
+
+class GroupViewSet(
+    # mixins.MultiSerializerMixin,
+    rf_viewsets.GenericViewSet,
+    rf_mixins.CreateModelMixin,
+    rf_mixins.RetrieveModelMixin,
+    rf_mixins.UpdateModelMixin,
+):
+
+    permission_classes = [
+        # rf_permissions.IsAuthenticated
+    ]
+    # serializer_classes = {
+    #     'create': serializers.CreateProfileSerializer,
+    #     'retrieve': serializers.ProfileSerializer,
+    #     'update': serializers.ProfileSerializer,
+    # }
+    serializer_class = serializers.GroupSerializer
+    queryset = models.Group.objects.all()

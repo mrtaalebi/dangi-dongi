@@ -52,13 +52,36 @@ class EventSerializer(serializers.ModelSerializer):
 
 class GroupSerializer(serializers.ModelSerializer):
 
-    events = EventSerializer(many=True)
+    events = EventSerializer(many=True, read_only=True)
+    usernames = serializers.ListSerializer(child=serializers.CharField(), write_only=True)
 
     class Meta:
         model = models.Group
         fields = [
-            'id', 'events'
+            'id', 'name', 'events', 'people', 'usernames',
         ]
+        read_only_fields = [
+            'id', 'events', 'people',
+        ]
+
+    def add_users(self, group, usernames):
+        users = User.objects.filter(
+            username__in=usernames
+        )
+        for user in users:
+            group.people.add(user.profile)
+
+    def create(self, validated_data):
+        usernames = validated_data.pop('usernames')
+        group = models.Group.objects.create(
+            name=validated_data['name']
+        )
+        self.add_users(group, usernames)
+        return group
+
+    def update(self, group, validated_data):
+        self.add_users(group, validated_data['usernames'])
+        return group
 
 
 class ProfileSerializer(serializers.ModelSerializer):

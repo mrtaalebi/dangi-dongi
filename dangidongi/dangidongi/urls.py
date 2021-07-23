@@ -21,8 +21,12 @@ urlpatterns = [
 
 router = DefaultRouter()
 router.register(
-    'api/profile/',
+    'api/profile',
     views.ProfileViewSet
+)
+router.register(
+    'api/group',
+    views.GroupViewSet
 )
 
 urlpatterns += router.urls
