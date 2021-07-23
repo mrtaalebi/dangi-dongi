@@ -1,6 +1,11 @@
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login
+from rest_framework.response import Response
 from rest_framework import (
     viewsets as rf_viewsets,
+    views as rf_views,
     mixins as rf_mixins,
+    status as rf_status,
 )
 
 from dangidongi import (
@@ -28,3 +33,24 @@ class ProfileViewSet(
     }
     queryset = models.Profile.objects.all()
 
+
+class LoginAPIView(rf_views.APIView):
+
+    def post(self, request):
+        try:
+            user = authenticate(
+                username=request.data['username'],
+                password=request.data['password'],
+            )
+            if user is None:
+                return Response(
+                    status=rf_status.HTTP_401_UNAUTHORIZED
+                )
+            login(request, user)
+            return Response(
+                status=rf_status.HTTP_202_ACCEPTED
+            )
+        except KeyError:
+            return Response(
+                status=rf_status.HTTP_400_BAD_REQUEST
+            )

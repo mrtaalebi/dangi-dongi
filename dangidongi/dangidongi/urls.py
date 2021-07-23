@@ -13,11 +13,15 @@ urlpatterns = [
         'admin/',
          admin.site.urls
     ),
+    path(
+        'api/profile/login/',
+        views.LoginAPIView.as_view()
+    ),
 ]
 
 router = DefaultRouter()
 router.register(
-    'profile',
+    'api/profile/',
     views.ProfileViewSet
 )
 
