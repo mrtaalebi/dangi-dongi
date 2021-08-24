@@ -76,3 +76,13 @@ class EventViewSet(rf_viewsets.ModelViewSet):
                 shared_events.append(event)
         return self.request.user.profile.events.all()
 
+
+class PaymentViewSet(rf_viewsets.ModelViewSet):
+    permission_classes = [
+        rf_permissions.IsAuthenticated,
+    ]
+
+    serializer_class = serializers.PaymentSerializer
+
+    def get_queryset(self):
+        return models.Payment.objects.filter(payer=self.request.user.profile)

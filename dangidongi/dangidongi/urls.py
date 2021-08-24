@@ -38,6 +38,11 @@ router.register(
     views.EventViewSet,
     basename='event',
 )
+router.register(
+    'api/payment',
+    views.PaymentViewSet,
+    basename='payment',
+)
 
 urlpatterns += router.urls
 
