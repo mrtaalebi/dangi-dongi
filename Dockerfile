@@ -12,7 +12,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-RUN echo yes | ./manage.py collectstatic
+RUN echo yes | dangidongi/manage.py collectstatic
 
 
 ENTRYPOINT [ "sh", "-c", "export DJANGO_SETTINGS_MODULE=dangidongi.settings && gunicorn --bind :8000 --workers 2 dangidongi.wsgi:application" ]
